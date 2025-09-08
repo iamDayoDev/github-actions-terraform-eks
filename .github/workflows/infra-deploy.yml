@@ -26,7 +26,7 @@ jobs:
      # Run only on push events
     if: github.event_name == 'push'
 
-    dafault:
+    default:
       run:
         shell: bash
         workjing-directory: ./terraform
@@ -82,7 +82,7 @@ jobs:
     # Run only on workflow dispatch events
       if: github.event_name == 'workflow_dispatch'
 
-      defaults:
+      default:
         run:
           shell: bash
           working-directory: ./terraform
