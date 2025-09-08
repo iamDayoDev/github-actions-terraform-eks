@@ -23,7 +23,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
 
-     # Run only on push events
+     # Run only on push eventss
     if: github.event_name == 'push'
 
     defaults:
