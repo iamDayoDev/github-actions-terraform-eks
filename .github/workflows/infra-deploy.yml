@@ -75,57 +75,57 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml  
 
 
-    destroy:
-      name: Terraform Destroy
-      runs-on: ubuntu-latest
+    # destroy:
+    #   name: Terraform Destroy
+    #   runs-on: ubuntu-latest
 
-    # Run only on workflow dispatch events
-      if: github.event_name == 'workflow_dispatch'
+    # # Run only on workflow dispatch events
+    #   if: github.event_name == 'workflow_dispatch'
 
-      default:
-        run:
-          shell: bash
-          working-directory: ./terraform
+    #   default:
+    #     run:
+    #       shell: bash
+    #       working-directory: ./terraform
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v3
+    #   steps:
+    #     - name: Checkout repository
+    #       uses: actions/checkout@v3
 
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v2
-          with:
-            aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-            aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-            aws-region: ${{ env.AWS_REGION }}
+    #     - name: Configure AWS credentials
+    #       uses: aws-actions/configure-aws-credentials@v2
+    #       with:
+    #         aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+    #         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+    #         aws-region: ${{ env.AWS_REGION }}
 
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v2
-          with:
-            terraform_version: 1.6.7
+    #     - name: Setup Terraform
+    #       uses: hashicorp/setup-terraform@v2
+    #       with:
+    #         terraform_version: 1.6.7
 
-        - name: Terraform Init
-          run: terraform init -backend-config="bucket=${{ env.S3_BUCKET }}"
+    #     - name: Terraform Init
+    #       run: terraform init -backend-config="bucket=${{ env.S3_BUCKET }}"
 
-        - name: EKS Get Kubeconfig
-          id: getEksConfig
-          run: |
-            aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+    #     - name: EKS Get Kubeconfig
+    #       id: getEksConfig
+    #       run: |
+    #         aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
 
-        - name: Destroy Ingress Nginx Controller
-          run: |
-            kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
+    #     - name: Destroy Ingress Nginx Controller
+    #       run: |
+    #         kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
-        - name: Delete Image Repository
-          run: |
-            REPOSITORY_NAME=${{ vars.ECR_REPO }})
-            IMAGES=$(aws ecr list-images --repository-name $REPOSITORY_NAME --query 'imageIds[*]' --output json)
-            if [ "$IMAGES" != "[]" ]; then
-            echo "Deleting images from the repository..."
-              aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --image-ids "$IMAGES"
-            else
-              echo "No images found in the repository."
-            fi
+    #     - name: Delete Image Repository
+    #       run: |
+    #         REPOSITORY_NAME=${{ vars.ECR_REPO }})
+    #         IMAGES=$(aws ecr list-images --repository-name $REPOSITORY_NAME --query 'imageIds[*]' --output json)
+    #         if [ "$IMAGES" != "[]" ]; then
+    #         echo "Deleting images from the repository..."
+    #           aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --image-ids "$IMAGES"
+    #         else
+    #           echo "No images found in the repository."
+    #         fi
         
 
-        - name: Terraform Destroy
-          run: terraform destroy -auto-approve -input=false
+    #     - name: Terraform Destroy
+    #       run: terraform destroy -auto-approve -input=false
