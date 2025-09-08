@@ -59,7 +59,7 @@ jobs:
         run: exit 1
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -input=false -parallelism=1 planfile
+        run: terraform apply -auto-approve -input=false -parallelism=1 plainfile
 
       - name: EKS Update Kubeconfig
         id: getEksConfig
