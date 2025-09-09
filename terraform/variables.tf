@@ -53,7 +53,7 @@ variable "k8s_version" {
 variable "node_instance_types" {
   description = "List of instance types for the EKS worker nodes"
   type        = list(string)
-  default     = ["t2.micro"]
+  default     = ["t2.small"]
 }
 
 variable "node_desired_capacity" {
