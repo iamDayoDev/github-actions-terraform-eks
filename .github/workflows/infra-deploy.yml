@@ -74,54 +74,74 @@ jobs:
 
 
   destroy:
-      name: Terraform Destroy
-      runs-on: ubuntu-latest
+  name: Terraform Destroy
+  runs-on: ubuntu-latest
 
-    # Run only on workflow dispatch events
-      # if: github.event_name == 'workflow_dispatch'
+  defaults:
+    run:
+      shell: bash
+      working-directory: ./terraform
 
-      defaults:
-        run:
-          shell: bash
-          working-directory: ./terraform
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v2
-          with:
-            aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-            aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-            aws-region: ${{ env.AWS_REGION }}
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
 
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v2
+    - name: Terraform Init
+      run: terraform init -backend-config="bucket=${{ env.S3_BUCKET }}"
 
-        - name: Terraform Init
-          run: terraform init -backend-config="bucket=${{ env.S3_BUCKET }}"
+    - name: EKS Get Kubeconfig
+      run: |
+        aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
 
-        - name: EKS Get Kubeconfig
-          id: getEksConfig
-          run: |
-            aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+    - name: Destroy Ingress Nginx Controller
+      continue-on-error: true
+      run: |
+        kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
-        # - name: Destroy Ingress Nginx Controller
-        #   run: |
-        #     kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
+    - name: Delete ECR Images
+      continue-on-error: true
+      run: |
+        REPOSITORY_NAME=${{ env.ECR_REPO }}
+        IMAGES=$(aws ecr list-images --repository-name $REPOSITORY_NAME --query 'imageIds[*]' --output json)
+        if [ "$IMAGES" != "[]" ]; then
+          echo "Deleting images from the repository..."
+          aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --image-ids "$IMAGES"
+        else
+          echo "No images found in the repository."
+        fi
 
-        # - name: Delete Image Repository
-        #   run: |
-        #     REPOSITORY_NAME=${{ vars.ECR_REPO }})
-        #     IMAGES=$(aws ecr list-images --repository-name $REPOSITORY_NAME --query 'imageIds[*]' --output json)
-        #     if [ "$IMAGES" != "[]" ]; then
-        #     echo "Deleting images from the repository..."
-        #       aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --image-ids "$IMAGES"
-        #     else
-        #       echo "No images found in the repository."
-        #     fi
-        
+    - name: Detach and Delete Internet Gateway
+      continue-on-error: true
+      run: |
+        VPC_ID=$(aws ec2 describe-vpcs --query 'Vpcs[0].VpcId' --output text)
+        IGW_ID=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --query 'InternetGateways[0].InternetGatewayId' --output text)
+        if [ "$IGW_ID" != "None" ]; then
+          echo "Detaching IGW $IGW_ID from VPC $VPC_ID"
+          aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID
+          aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID
+        fi
 
-        - name: Terraform Destroy
-          run: terraform destroy -auto-approve -input=false
+    - name: Delete Network Interfaces in Subnets
+      continue-on-error: true
+      run: |
+        SUBNET_IDS=$(aws ec2 describe-subnets --query 'Subnets[*].SubnetId' --output text)
+        for SUBNET_ID in $SUBNET_IDS; do
+          ENI_IDS=$(aws ec2 describe-network-interfaces --filters Name=subnet-id,Values=$SUBNET_ID --query 'NetworkInterfaces[*].NetworkInterfaceId' --output text)
+          for ENI_ID in $ENI_IDS; do
+            echo "Deleting ENI $ENI_ID in subnet $SUBNET_ID"
+            aws ec2 delete-network-interface --network-interface-id $ENI_ID || true
+          done
+        done
+
+    - name: Terraform Destroy
+      run: terraform destroy -auto-approve -input=false
