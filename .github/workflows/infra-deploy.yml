@@ -113,7 +113,7 @@ jobs:
 
         - name: Delete Image Repository
           run: |
-            REPOSITORY_NAME=${{ vars.ECR_REPO }})
+            REPOSITORY_NAME=${{ vars.ECR_REPO }}
             IMAGES=$(aws ecr list-images --repository-name $REPOSITORY_NAME --query 'imageIds[*]' --output json)
             if [ "$IMAGES" != "[]" ]; then
             echo "Deleting images from the repository..."
