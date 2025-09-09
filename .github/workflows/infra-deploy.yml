@@ -80,7 +80,7 @@ jobs:
     # Run only on workflow dispatch events
       if: github.event_name == 'workflow_dispatch'
 
-      default:
+      defaults:
         run:
           shell: bash
           working-directory: ./terraform
