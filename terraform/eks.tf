@@ -16,6 +16,8 @@ module "eks" {
   create_cluster_security_group = false
   create_node_security_group    = false
 
+  enable_cluster_creator_admin_permissions = true
+
   cluster_addons = {
     vpc-cni = {
       most_recent_version = true
