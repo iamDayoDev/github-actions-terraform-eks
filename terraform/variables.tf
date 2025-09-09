@@ -1,4 +1,4 @@
-#Variables for Terraform configurationss
+#Variables for Terraform configurationsss
 variable "region" {
   description = "The AWS region to deploy resources in"
   type        = string
